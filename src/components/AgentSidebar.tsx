@@ -13,20 +13,13 @@ import {
   SelectChangeEvent,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-
-interface Agent {
-  id: string;
-  title: string;
-  description: string;
-  model: string;
-  relationships: string[];
-}
+import { Agent, AgentType, AgentRelation } from "../data/Interfaces";
 
 interface AgentFormData {
-  title: string;
-  description: string;
-  model: string;
-  relationships: string[];
+  id?: string;
+  agent_type: AgentType;
+  system_prompt: string;
+  relationships: AgentRelation[];
 }
 
 interface AgentSidebarProps {
@@ -47,9 +40,8 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
   editingNode,
 }) => {
   const [agentData, setAgentData] = useState<AgentFormData>({
-    title: "",
-    description: "",
-    model: "",
+    agent_type: AgentType.SUPERVISOR,
+    system_prompt: "",
     relationships: [],
   });
 
@@ -60,21 +52,19 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
   useEffect(() => {
     if (editingNode) {
       setAgentData({
-        title: editingNode.data.title,
-        description: editingNode.data.description,
-        model: editingNode.data.model,
+        agent_type: editingNode.data.agent_type,
+        system_prompt: editingNode.data.system_prompt,
         relationships: editingNode.data.relationships || [],
       });
     } else {
       // Reset form when not editing
       setAgentData({
-        title: "",
-        description: "",
-        model: "",
+        agent_type: existingAgents.length === 0 ? AgentType.SUPERVISOR : AgentType.CODER,
+        system_prompt: "",
         relationships: [],
       });
     }
-  }, [editingNode]);
+  }, [editingNode, existingAgents.length]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -82,39 +72,69 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
     if (editingNode) {
       // Handle edit case
       const updatedAgent: Agent = {
-        ...agentData,
         id: editingNode.id,
+        ...agentData,
       };
       onEditAgent?.(editingNode.id, updatedAgent);
     } else {
       // Handle create case
       const newAgent: Agent = {
-        ...agentData,
         id: `agent-${Date.now()}`,
+        ...agentData,
       };
       onAddAgent(newAgent);
     }
 
     setAgentData({
-      title: "",
-      description: "",
-      model: "",
+      agent_type: existingAgents.length === 0 ? AgentType.SUPERVISOR : AgentType.CODER,
+      system_prompt: "",
       relationships: [],
     });
     onClose();
   };
 
   const handleRelationshipChange = (
-    event: SelectChangeEvent<string[]>
+    event: SelectChangeEvent<unknown>
   ): void => {
+    const value = event.target.value as AgentRelation[];
     setAgentData({
       ...agentData,
-      relationships:
-        typeof event.target.value === "string"
-          ? [event.target.value]
-          : event.target.value,
+      relationships: value,
     });
   };
+
+  const hasSupervisor = (): boolean => {
+    return existingAgents.some(
+      (agent) => agent.agent_type === AgentType.SUPERVISOR
+    );
+  };
+
+  const isSupervisorNode = (): boolean => {
+    return editingNode?.data.agent_type === AgentType.SUPERVISOR;
+  };
+
+  const agentTypeOptions = (() => {
+    // If there are no agents or we're editing a supervisor node, only show SUPERVISOR
+    if (existingAgents.length === 0 || isSupervisorNode()) {
+      return [
+        {
+          value: AgentType.SUPERVISOR,
+          label: "Supervisor",
+        },
+      ];
+    }
+
+    // If there's already a supervisor, show all types except SUPERVISOR
+    return Object.values(AgentType)
+      .filter((type) => type !== AgentType.SUPERVISOR)
+      .map((type) => ({
+        value: type,
+        label: type
+          .split("_")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" "),
+      }));
+  })();
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} sx={{ width: 400 }}>
@@ -136,62 +156,38 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
         </Box>
 
         <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="Agent Title"
-            value={agentData.title}
-            onChange={(e) =>
-              setAgentData({ ...agentData, title: e.target.value })
-            }
-            margin="normal"
-            required
-          />
+          <FormControl fullWidth margin="normal" required>
+            <InputLabel>Agent Type</InputLabel>
+            <Select
+              value={agentData.agent_type}
+              onChange={(e) =>
+                setAgentData({
+                  ...agentData,
+                  agent_type: e.target.value as AgentType,
+                })
+              }
+              label="Agent Type"
+            >
+              {agentTypeOptions.map(({ value, label }) => (
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           <TextField
             fullWidth
-            label="Job Description"
-            value={agentData.description}
+            label="System Prompt"
+            value={agentData.system_prompt}
             onChange={(e) =>
-              setAgentData({ ...agentData, description: e.target.value })
+              setAgentData({ ...agentData, system_prompt: e.target.value })
             }
             margin="normal"
             multiline
             rows={4}
             required
           />
-
-          <FormControl fullWidth margin="normal" required>
-            <InputLabel>Model</InputLabel>
-            <Select
-              value={agentData.model}
-              onChange={(e) =>
-                setAgentData({ ...agentData, model: e.target.value })
-              }
-              label="Model"
-            >
-              {models.map((model) => (
-                <MenuItem key={model} value={model}>
-                  {model}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Relationships</InputLabel>
-            <Select
-              multiple
-              value={agentData.relationships}
-              onChange={handleRelationshipChange}
-              label="Relationships"
-            >
-              {existingAgents.map((agent) => (
-                <MenuItem key={agent.id} value={agent.id}>
-                  {agent.title}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
 
           <Button variant="contained" type="submit" fullWidth sx={{ mt: 3 }}>
             {editingNode ? "Save Changes" : "Create Agent"}

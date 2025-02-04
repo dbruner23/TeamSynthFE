@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback, useState, useEffect } from "react";
 import {
   ReactFlow,
   useNodesState,
@@ -7,57 +7,40 @@ import {
   Handle,
   Position,
   useStore,
+  Node,
+  Edge,
+  Connection,
+  NodeProps,
 } from "@xyflow/react";
 import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
-import { Button } from "@mui/material";
+import BugReportIcon from "@mui/icons-material/BugReport";
+import { Button, TextField, Box, Typography, Link } from "@mui/material";
 import AgentSidebar from "./AgentSidebar";
+import TaskPanel from "./TaskPanel";
 import Styles from "./TeamFlowBase.module.css";
 import "@xyflow/react/dist/style.css";
+import Api from "../data/Api";
+import { Agent, AgentType, CreateAgentRequest } from "../data/Interfaces";
 
-interface Agent {
-  id: string;
-  title: string;
-  description: string;
-  model: string;
-  relationships: string[];
-}
-
-interface NodeData {
+interface CustomNodeData {
   label: string;
-  model: string;
-  description: string;
+  model?: string;
+  agentType: AgentType;
+  description?: string;
+  [key: string]: unknown;
 }
 
-interface Node {
-  id: string;
-  type: string;
-  position: { x: number; y: number };
-  data: NodeData;
+type CustomNode = Node<CustomNodeData>;
+
+interface TaskOutput {
+  agentId: string;
+  output: string;
 }
 
-interface Edge {
-  id: string;
-  source: string;
-  target: string;
-}
-
-const initialNodes = [
-  {
-    id: "1",
-    type: "editable",
-    position: { x: 0, y: 0 },
-    data: { label: "1", model: "GPT-4o", description: "test" },
-  },
-  {
-    id: "2",
-    type: "editable",
-    position: { x: 0, y: 100 },
-    data: { label: "2" },
-  },
-];
-const initialEdges = [{ id: "e1-2", source: "1", target: "2" }];
+const initialNodes: CustomNode[] = [];
+const initialEdges: Edge[] = [];
 
 const TeamFlowBase: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -68,146 +51,374 @@ const TeamFlowBase: React.FC = () => {
     id: string;
     data: Agent;
   } | null>(null);
+  const [taskOutputs, setTaskOutputs] = useState<TaskOutput[]>([]);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [tempApiKey, setTempApiKey] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const handleEditAgent = (id: string, updatedAgent: Agent): void => {
-    // Update the nodes
-    setNodes((prevNodes) =>
-      prevNodes.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              data: {
-                label: updatedAgent.title,
-                description: updatedAgent.description,
-                model: updatedAgent.model,
-              },
-            }
-          : node
-      )
-    );
+  const CANVAS_CENTER_X = 500;
+  const CANVAS_CENTER_Y = 300;
+  const WORKER_Y_OFFSET = 200;
+  const WORKER_X_SPACING = 500;
 
-    // Update the agents list
-    setAgents((prevAgents) =>
-      prevAgents.map((agent) => (agent.id === id ? updatedAgent : agent))
-    );
+  const calculateNodePosition = (agents: Agent[], newAgent: Agent) => {
+    // If this is the first agent (supervisor), place it in the center
+    if (agents.length === 0) {
+      return { x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y };
+    }
 
-    // Update the edges
-    setEdges((prevEdges) => {
-      // Remove existing edges for this node
-      const filteredEdges = prevEdges.filter((edge) => edge.source !== id);
+    // For worker nodes, calculate position below the supervisor
+    const workerIndex = agents.length;
+    const totalWidth = WORKER_X_SPACING * Math.max(1, agents.length);
+    const startX = CANVAS_CENTER_X - totalWidth / 2 + WORKER_X_SPACING / 2;
 
-      // Add new relationship edges
-      const newEdges = updatedAgent.relationships.map((targetId) => ({
-        id: `e${id}-${targetId}`,
-        source: id,
-        target: targetId,
-      }));
-
-      return [...filteredEdges, ...newEdges];
-    });
+    return {
+      x: startX + (workerIndex - 1) * WORKER_X_SPACING,
+      y: CANVAS_CENTER_Y + WORKER_Y_OFFSET,
+    };
   };
 
-  const handleAddAgent = (newAgent: Agent): void => {
-    const newNode: Node = {
-      id: newAgent.id,
-      type: "editable",
-      position: {
-        x: Math.random() * 500,
-        y: Math.random() * 500,
-      },
-      data: {
-        label: newAgent.title,
-        description: newAgent.description,
-        model: newAgent.model,
-      },
+  useEffect(() => {
+    const loadAgents = async () => {
+      if (apiKey) {
+        try {
+          const loadedAgents = await Api.getAgents();
+          setAgents(loadedAgents);
+
+          // Create nodes from loaded agents
+          const newNodes = loadedAgents.map((agent) => ({
+            id: agent.id,
+            type: "editable",
+            position: calculateNodePosition(loadedAgents, agent),
+            data: {
+              label: agent.id,
+              agentType: agent.agent_type,
+              description: agent.system_prompt,
+            },
+          }));
+          setNodes(newNodes);
+
+          // Create edges from relationships
+          const newEdges = loadedAgents.flatMap((agent) =>
+            agent.relationships.map((rel) => ({
+              id: `e${agent.id}-${rel.to_agent}`,
+              source: agent.id,
+              target: rel.to_agent,
+            }))
+          );
+          setEdges(newEdges);
+        } catch (error) {
+          console.error("Failed to load agents:", error);
+        }
+      }
     };
+    loadAgents();
+  }, [apiKey]);
 
-    setNodes((prevNodes) => [...prevNodes, newNode]);
-    setAgents((prevAgents) => [...prevAgents, newAgent]);
+  const handleApiKeySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tempApiKey.trim()) {
+      setIsLoading(true);
+      try {
+        await Api.setApiKey(tempApiKey.trim());
+        setApiKey(tempApiKey.trim());
+      } catch (error) {
+        console.error("Failed to set API key:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
-    if (newAgent.relationships && newAgent.relationships.length > 0) {
-      const newEdges: Edge[] = newAgent.relationships.map((targetId) => ({
-        id: `e${newAgent.id}-${targetId}`,
-        source: newAgent.id,
-        target: targetId,
-      }));
-      setEdges((eds) => [...eds, ...newEdges]);
+  const handleEditAgent = async (
+    id: string,
+    updatedAgent: Agent
+  ): Promise<void> => {
+    try {
+      const agentRequest: CreateAgentRequest = {
+        id: updatedAgent.id,
+        agent_type: updatedAgent.agent_type,
+        system_prompt: updatedAgent.system_prompt,
+        relationships: updatedAgent.relationships,
+      };
+
+      await Api.createAgent(agentRequest);
+
+      setNodes((prevNodes) =>
+        prevNodes.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                data: {
+                  label: updatedAgent.id,
+                  agentType: updatedAgent.agent_type,
+                  description: updatedAgent.system_prompt,
+                },
+              }
+            : node
+        )
+      );
+
+      setAgents((prevAgents) =>
+        prevAgents.map((agent) => (agent.id === id ? updatedAgent : agent))
+      );
+
+      setEdges((prevEdges) => {
+        const filteredEdges = prevEdges.filter((edge) => edge.source !== id);
+        const newEdges = updatedAgent.relationships.map((rel) => ({
+          id: `e${id}-${rel.to_agent}`,
+          source: id,
+          target: rel.to_agent,
+        }));
+        return [...filteredEdges, ...newEdges];
+      });
+    } catch (error) {
+      console.error("Failed to update agent:", error);
+    }
+  };
+
+  const handleAddAgent = async (newAgent: Agent): Promise<void> => {
+    try {
+      const agentRequest: CreateAgentRequest = {
+        id: newAgent.id,
+        agent_type: newAgent.agent_type,
+        system_prompt: newAgent.system_prompt,
+        relationships: newAgent.relationships,
+      };
+      const createdAgent = await Api.createAgent(agentRequest);
+      const position = calculateNodePosition(agents, createdAgent);
+
+      const newNode: CustomNode = {
+        id: createdAgent.id,
+        type: "editable",
+        position: position,
+        data: {
+          label: createdAgent.id,
+          agentType: createdAgent.agent_type,
+          description: createdAgent.system_prompt,
+        },
+      };
+
+      setNodes((prevNodes) => [...prevNodes, newNode]);
+      setAgents((prevAgents) => [...prevAgents, createdAgent]);
+
+      if (createdAgent.relationships && createdAgent.relationships.length > 0) {
+        const newEdges: Edge[] = createdAgent.relationships.map((rel) => ({
+          id: `e${createdAgent.id}-${rel.to_agent}`,
+          source: createdAgent.id,
+          target: rel.to_agent,
+        }));
+        setEdges((eds) => [...eds, ...newEdges]);
+      }
+    } catch (error) {
+      console.error("Failed to create agent:", error);
     }
   };
 
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
 
-  const EditableNode = memo(({ id, data }) => {
-    return (
-      <div className={Styles.editableNode}>
-        <div className={Styles.editableNodeHeader}>
-          <div>{data.label}</div>
-          <IconButton
-            size="small"
-            onClick={(event) => {
-              event.stopPropagation();
-              setSelectedNode({ id, data });
-              setIsDrawerOpen(true);
-            }}
-            className={Styles.editableNodeIcon}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </div>
-        {data.model && (
-          <div className={Styles.editableNodeModel}>Model: {data.model}</div>
-        )}
-        {data.description && (
-          <div className={Styles.editableNodeDescription}>
-            {data.description}
+  const EditableNode = memo(
+    ({ id, data }: { id: string; data: CustomNodeData }) => {
+      const isSupervisor = agents.length > 0 && agents[0].id === id;
+      return (
+        <div className={Styles.editableNode}>
+          <div className={Styles.editableNodeHeader}>
+            <div>{data.label}</div>
+            <IconButton
+              size="small"
+              onClick={(event) => {
+                event.stopPropagation();
+                const agent = agents.find((a) => a.id === id);
+                if (agent) {
+                  setSelectedNode({ id, data: agent });
+                  setIsDrawerOpen(true);
+                }
+              }}
+              className={Styles.editableNodeIcon}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
           </div>
-        )}
-        <Handle type="target" position={Position.Top} />
-        <Handle type="source" position={Position.Bottom} />
-      </div>
-    );
-  });
+          {data.agentType && (
+            <div className={Styles.editableNodeAgentType}>{data.agentType}</div>
+          )}
+          {data.model && (
+            <div className={Styles.editableNodeModel}>Model: {data.model}</div>
+          )}
+          {data.description && (
+            <div className={Styles.editableNodeDescription}>
+              {data.description}
+            </div>
+          )}
+          {/* Include both handles but only make them visible based on node type */}
+          <Handle type="target" position={Position.Bottom} />
+          <Handle type="source" position={Position.Top} />
+        </div>
+      );
+    }
+  );
 
   const nodeTypes = {
     editable: EditableNode,
   };
 
+  const handleTaskSubmit = async (task: string) => {
+    setTaskOutputs([]); // Clear previous outputs
+    try {
+      const stream = Api.executeTaskStream({ task });
+      for await (const step of stream) {
+        setTaskOutputs((prev) => [
+          ...prev,
+          {
+            agentId: step.agent,
+            output: step.content,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Failed to execute task:", error);
+      setTaskOutputs([
+        {
+          agentId: "error",
+          output: `Error processing task: ${error.message}`,
+        },
+      ]);
+    }
+  };
+
+  const handleDebugAgents = async () => {
+    try {
+      const response = await Api.getAgents();
+      console.log("Current Agents:", response);
+    } catch (error) {
+      console.error("Failed to fetch agents for debug:", error);
+    }
+  };
+
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={() => setIsDrawerOpen(true)}
-        style={{
-          position: "absolute",
-          top: 20,
-          right: 20,
-          zIndex: 1000,
-        }}
-      >
-        Add Agent
-      </Button>
+      {!apiKey ? (
+        <Box
+          sx={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "100%",
+            maxWidth: "400px",
+            textAlign: "center",
+            p: 3,
+          }}
+        >
+          <Typography variant="h5" gutterBottom>
+            Welcome to Team Synth
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            To get started, please enter your Anthropic API key. Don't have one?{" "}
+            <Link
+              href="https://console.anthropic.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Get it here
+            </Link>
+          </Typography>
+          <form onSubmit={handleApiKeySubmit}>
+            <TextField
+              fullWidth
+              label="Anthropic API Key"
+              type="password"
+              value={tempApiKey}
+              onChange={(e) => setTempApiKey(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+            <Button
+              variant="contained"
+              type="submit"
+              fullWidth
+              disabled={!tempApiKey.trim()}
+            >
+              Submit
+            </Button>
+          </form>
+        </Box>
+      ) : (
+        <>
+          <Button
+            variant="contained"
+            startIcon={<BugReportIcon />}
+            onClick={handleDebugAgents}
+            style={{
+              position: "absolute",
+              top: 20,
+              left: 20,
+              zIndex: 1000,
+            }}
+            color="secondary"
+          >
+            Debug Agents
+          </Button>
 
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-      />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setIsDrawerOpen(true)}
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 20,
+              zIndex: 1000,
+            }}
+          >
+            Add Agent
+          </Button>
 
-      <AgentSidebar
-        open={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        onAddAgent={handleAddAgent}
-        onEditAgent={handleEditAgent}
-        existingAgents={agents}
-        editingNode={selectedNode}
-      />
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+          >
+            {nodes.length === 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  textAlign: "center",
+                  color: "#666",
+                  fontSize: "1.2rem",
+                  userSelect: "none",
+                }}
+              >
+                <p>Click the "Add Agent" button in the top right</p>
+                <p>to start building your team!</p>
+              </div>
+            )}
+          </ReactFlow>
+
+          <AgentSidebar
+            open={isDrawerOpen}
+            onClose={() => setIsDrawerOpen(false)}
+            onAddAgent={handleAddAgent}
+            onEditAgent={handleEditAgent}
+            existingAgents={agents}
+            editingNode={selectedNode}
+          />
+
+          <TaskPanel
+            onSubmitTask={handleTaskSubmit}
+            outputs={taskOutputs}
+            existingAgents={agents}
+          />
+        </>
+      )}
     </div>
   );
 };
