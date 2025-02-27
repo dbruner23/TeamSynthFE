@@ -4,6 +4,7 @@ import {
   executeTask,
   getAgents,
   executeTaskStream,
+  cancelTask,
 } from "../services/ApiHandler";
 import { Agent, CreateAgentRequest, ExecuteTaskRequest } from "./Interfaces";
 
@@ -50,6 +51,15 @@ const Api = {
       return await getAgents();
     } catch (error) {
       console.error("Failed to get agents:", error);
+      throw error;
+    }
+  },
+
+  cancelTask: async (): Promise<void> => {
+    try {
+      await cancelTask();
+    } catch (error) {
+      console.error("Failed to cancel task:", error);
       throw error;
     }
   },

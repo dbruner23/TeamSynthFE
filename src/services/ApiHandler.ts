@@ -124,3 +124,14 @@ export const getAgents = async (): Promise<Agent[]> => {
     throw error;
   }
 };
+
+export const cancelTask = async (): Promise<void> => {
+  try {
+    await api.post("/cancel");
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.error || "Failed to cancel task");
+    }
+    throw error;
+  }
+};

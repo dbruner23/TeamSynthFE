@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Paper,
   TextField,
@@ -10,26 +10,72 @@ import {
 } from "@mui/material";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import StopIcon from "@mui/icons-material/Stop";
 import { Agent } from "../data/Interfaces";
+import Api from "../data/Api";
+import PythonVisualizer from "./PythonVisualizer";
+
+interface ParsedData {
+  type: string;
+  text?: string;
+  code?: string;
+  language?: string;
+}
+
+interface MessageContent {
+  type: string;
+  text: string;
+}
+
+interface CodeBlock {
+  language: string;
+  code: string;
+}
 
 interface TaskOutput {
-  agent: string;
-  content: string;
+  id: string;
+  type: string;
+  content: MessageContent[];
+  code_blocks: CodeBlock[];
+  tool_calls: any[];
+  metadata: {
+    model: string;
+    stop_reason: string;
+    usage: any;
+  };
 }
 
 interface TaskPanelProps {
   onSubmitTask: (task: string) => void;
   outputs: TaskOutput[];
   existingAgents: Agent[];
+  isTaskRunning: boolean;
+  onTaskComplete: () => void;
 }
 
 const TaskPanel: React.FC<TaskPanelProps> = ({
   onSubmitTask,
   outputs,
   existingAgents,
+  isTaskRunning,
+  onTaskComplete,
 }) => {
   const [task, setTask] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    // Check the latest output for task completion
+    if (outputs.length > 0) {
+      const lastOutput = outputs[outputs.length - 1];
+      if (
+        lastOutput.agent === "supervisor" &&
+        lastOutput.parsed_data &&
+        lastOutput.parsed_data[0].content[0].text === "Task complete"
+      ) {
+        onTaskComplete();
+      }
+    }
+  }, [outputs]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +83,64 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
       onSubmitTask(task.trim());
       setTask("");
     }
+  };
+
+  const handleCancel = async () => {
+    try {
+      const response = await Api.cancelTask();
+      if (response.content === "Task cancelled") {
+        onTaskComplete();
+      }
+    } catch (error) {
+      console.error("Failed to cancel task:", error);
+    }
+  };
+
+  const renderContent = (parsed_data: TaskOutput[]) => {
+    const elements: JSX.Element[] = [];
+
+    parsed_data.forEach((item: TaskOutput, index: number) => {
+      // Render text content
+      if (item.content) {
+        item.content.forEach((item, index) => {
+          if (item.type === "text") {
+            elements.push(
+              <React.Fragment key={`text-${index}`}>
+                {item.text.split("\n").map((line, lineIndex) => (
+                  <Typography
+                    key={`${index}-${lineIndex}`}
+                    variant="body2"
+                    sx={{ mb: 1 }}
+                  >
+                    {line}
+                  </Typography>
+                ))}
+              </React.Fragment>
+            );
+          }
+        });
+      }
+
+      // Render code blocks
+      if (item.tool_calls?.length > 0) {
+        const toolCall = item.tool_calls[0];
+        if (toolCall.tool_name === "plot_data_tool") {
+          elements.push(
+            <Box key={`code-${index}`} sx={{ mt: 2, mb: 2 }}>
+              <PythonVisualizer pythonCode={toolCall.input.code} />
+            </Box>
+          );
+        } else if (toolCall.tool_name === "publish_code_tool") {
+          elements.push(
+            <pre key={`code-${index}`}>
+              <code>{toolCall.input.code}</code>
+            </pre>
+          );
+        }
+      }
+    });
+
+    return elements;
   };
 
   return (
@@ -60,30 +164,48 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
       <Collapse in={isExpanded}>
         <Box sx={{ p: 2 }}>
           <form onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              multiline
-              rows={2}
-              value={task}
-              onChange={(e) => setTask(e.target.value)}
-              placeholder="Enter your task here..."
-              variant="outlined"
-              sx={{ mb: 2 }}
-              disabled={existingAgents.length === 0}
-            />
-            <Button
-              variant="contained"
-              type="submit"
-              disabled={!task.trim() || existingAgents.length === 0}
-              sx={{ mb: 2 }}
-            >
-              Submit Task
-            </Button>
+            <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                placeholder="Enter your task here..."
+                variant="outlined"
+                disabled={existingAgents.length === 0 || isTaskRunning}
+              />
+              {isTaskRunning ? (
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={handleCancel}
+                  startIcon={<StopIcon />}
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  type="submit"
+                  disabled={!task.trim() || existingAgents.length === 0}
+                >
+                  Submit Task
+                </Button>
+              )}
+            </Box>
           </form>
+
+          {/* Add default visualization for testing */}
+          {/* <Box sx={{ my: 2 }}>
+            <Typography variant="h6">Test Visualization</Typography>
+            <PythonVisualizer />
+          </Box> */}
 
           <Box
             sx={{
-              maxHeight: "200px",
+              maxHeight: "50vh",
+              height: "50vh",
               overflowY: "auto",
               bgcolor: "#f5f5f5",
               p: 2,
@@ -91,14 +213,20 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
             }}
           >
             <Typography variant="h6">Task Steps</Typography>
-            {outputs.map((output, index) => (
-              <Box key={index} sx={{ mt: 2, p: 1, border: "1px solid #ccc" }}>
-                <Typography variant="subtitle2">
-                  Agent: {output.agent}
-                </Typography>
-                <Typography variant="body2">{output.content}</Typography>
-              </Box>
-            ))}
+            {outputs.map(
+              (output, index) =>
+                output.agent && (
+                  <Box
+                    key={index}
+                    sx={{ mt: 2, p: 1, border: "1px solid #ccc" }}
+                  >
+                    <Typography variant="subtitle2">
+                      Agent: {output.agent}
+                    </Typography>
+                    {renderContent(output.parsed_data)}
+                  </Box>
+                )
+            )}
           </Box>
         </Box>
       </Collapse>

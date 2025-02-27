@@ -34,9 +34,17 @@ interface CustomNodeData {
 
 type CustomNode = Node<CustomNodeData>;
 
+interface ParsedData {
+  type: string;
+  content: any;
+  text?: string;
+  code?: string;
+  language?: string;
+}
+
 interface TaskOutput {
-  agentId: string;
-  output: string;
+  agent: string;
+  parsed_data: ParsedData[];
 }
 
 const initialNodes: CustomNode[] = [];
@@ -55,26 +63,28 @@ const TeamFlowBase: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [tempApiKey, setTempApiKey] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTaskRunning, setIsTaskRunning] = useState<boolean>(false);
 
   const CANVAS_CENTER_X = 500;
   const CANVAS_CENTER_Y = 300;
   const WORKER_Y_OFFSET = 200;
-  const WORKER_X_SPACING = 500;
+  const WORKER_X_SPACING = 300;
 
-  const calculateNodePosition = (agents: Agent[], newAgent: Agent) => {
+  const calculateNodePosition = (agents: Agent[]) => {
     // If this is the first agent (supervisor), place it in the center
     if (agents.length === 0) {
-      return { x: CANVAS_CENTER_X, y: CANVAS_CENTER_Y };
+      return {
+        x: CANVAS_CENTER_X + 100,
+        y: CANVAS_CENTER_Y - WORKER_Y_OFFSET / 2,
+      };
     }
 
-    // For worker nodes, calculate position below the supervisor
-    const workerIndex = agents.length;
-    const totalWidth = WORKER_X_SPACING * Math.max(1, agents.length);
-    const startX = CANVAS_CENTER_X - totalWidth / 2 + WORKER_X_SPACING / 2;
+    const workerIndex = agents.length - 1;
+    const startX = workerIndex * WORKER_X_SPACING + 100;
 
     return {
-      x: startX + (workerIndex - 1) * WORKER_X_SPACING,
-      y: CANVAS_CENTER_Y + WORKER_Y_OFFSET,
+      x: startX,
+      y: CANVAS_CENTER_Y + WORKER_Y_OFFSET / 2,
     };
   };
 
@@ -172,6 +182,8 @@ const TeamFlowBase: React.FC = () => {
         }));
         return [...filteredEdges, ...newEdges];
       });
+
+      setSelectedNode(null);
     } catch (error) {
       console.error("Failed to update agent:", error);
     }
@@ -266,28 +278,52 @@ const TeamFlowBase: React.FC = () => {
   };
 
   const handleTaskSubmit = async (task: string) => {
-    setTaskOutputs([]); // Clear previous outputs
+    setIsTaskRunning(true);
+    // Clear previous outputs only when starting a new task
+    setTaskOutputs([
+      {
+        agent: "User",
+        parsed_data: [
+          { type: "human_message", content: [{ type: "text", text: task }] },
+        ],
+      },
+    ]);
+
     try {
       const stream = Api.executeTaskStream({ task });
       for await (const step of stream) {
         setTaskOutputs((prev) => [
           ...prev,
           {
-            agentId: step.agent,
-            output: step.content,
+            agent: step.agent,
+            parsed_data: step.parsed_data || [],
           },
         ]);
       }
     } catch (error) {
       console.error("Failed to execute task:", error);
-      setTaskOutputs([
+      setTaskOutputs((prev) => [
+        ...prev,
         {
-          agentId: "error",
-          output: `Error processing task: ${error.message}`,
+          agent: "error",
+          parsed_data: [
+            {
+              type: "error_message",
+              content: {
+                type: "text",
+                text: `Error processing task: ${error.message}`,
+              },
+            },
+          ],
         },
       ]);
+      setIsTaskRunning(false);
     }
   };
+
+  const handleTaskComplete = useCallback(() => {
+    setIsTaskRunning(false);
+  }, []);
 
   const handleDebugAgents = async () => {
     try {
@@ -416,6 +452,8 @@ const TeamFlowBase: React.FC = () => {
             onSubmitTask={handleTaskSubmit}
             outputs={taskOutputs}
             existingAgents={agents}
+            isTaskRunning={isTaskRunning}
+            onTaskComplete={handleTaskComplete}
           />
         </>
       )}
