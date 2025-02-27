@@ -84,7 +84,7 @@ const PythonVisualizer: React.FC<Props> = ({ pythonCode }) => {
         `);
 
         // Execute the visualization code (keeping plt.show())
-        await pyodide.runPythonAsync(pythonCode);
+        await pyodide.runPythonAsync(pythonCode || "");
 
         // Ensure the figure is rendered and capture it
         await pyodide.runPythonAsync(`

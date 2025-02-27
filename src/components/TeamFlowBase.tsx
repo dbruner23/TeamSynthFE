@@ -23,6 +23,7 @@ import Styles from "./TeamFlowBase.module.css";
 import "@xyflow/react/dist/style.css";
 import Api from "../data/Api";
 import { Agent, AgentType, CreateAgentRequest } from "../data/Interfaces";
+import { ParsedData, TaskOutput } from "../data/TaskInterfaces";
 
 interface CustomNodeData {
   label: string;
@@ -33,19 +34,6 @@ interface CustomNodeData {
 }
 
 type CustomNode = Node<CustomNodeData>;
-
-interface ParsedData {
-  type: string;
-  content: any;
-  text?: string;
-  code?: string;
-  language?: string;
-}
-
-interface TaskOutput {
-  agent: string;
-  parsed_data: ParsedData[];
-}
 
 const initialNodes: CustomNode[] = [];
 const initialEdges: Edge[] = [];

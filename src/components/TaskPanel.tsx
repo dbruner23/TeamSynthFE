@@ -14,40 +14,12 @@ import StopIcon from "@mui/icons-material/Stop";
 import { Agent } from "../data/Interfaces";
 import Api from "../data/Api";
 import PythonVisualizer from "./PythonVisualizer";
-
-interface ParsedData {
-  type: string;
-  text?: string;
-  code?: string;
-  language?: string;
-}
-
-interface MessageContent {
-  type: string;
-  text: string;
-}
-
-interface CodeBlock {
-  language: string;
-  code: string;
-}
-
-interface TaskOutput {
-  id: string;
-  type: string;
-  content: MessageContent[];
-  code_blocks: CodeBlock[];
-  tool_calls: any[];
-  metadata: {
-    model: string;
-    stop_reason: string;
-    usage: any;
-  };
-}
+// Import the shared TaskOutput interface
+import { TaskOutput } from "../data/TaskInterfaces";
 
 interface TaskPanelProps {
   onSubmitTask: (task: string) => void;
-  outputs: TaskOutput[];
+  outputs: TaskOutput[]; // Now using the shared interface
   existingAgents: Agent[];
   isTaskRunning: boolean;
   onTaskComplete: () => void;
