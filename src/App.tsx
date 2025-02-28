@@ -5,8 +5,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<h1>Home</h1>} />
-        <Route path="/teamflow" element={<TeamFlowBase />} />
+        <Route path="/" element={<TeamFlowBase />} />
       </Routes>
     </BrowserRouter>
   );
