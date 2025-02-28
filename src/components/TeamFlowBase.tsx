@@ -6,11 +6,9 @@ import {
   addEdge,
   Handle,
   Position,
-  useStore,
   Node,
   Edge,
   Connection,
-  NodeProps,
 } from "@xyflow/react";
 import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
@@ -23,7 +21,7 @@ import Styles from "./TeamFlowBase.module.css";
 import "@xyflow/react/dist/style.css";
 import Api from "../data/Api";
 import { Agent, AgentType, CreateAgentRequest } from "../data/Interfaces";
-import { ParsedData, TaskOutput } from "../data/TaskInterfaces";
+import { TaskOutput } from "../data/TaskInterfaces";
 
 interface CustomNodeData {
   label: string;
@@ -50,7 +48,6 @@ const TeamFlowBase: React.FC = () => {
   const [taskOutputs, setTaskOutputs] = useState<TaskOutput[]>([]);
   const [apiKey, setApiKey] = useState<string>("");
   const [tempApiKey, setTempApiKey] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isTaskRunning, setIsTaskRunning] = useState<boolean>(false);
 
   const CANVAS_CENTER_X = 500;
@@ -87,7 +84,7 @@ const TeamFlowBase: React.FC = () => {
           const newNodes = loadedAgents.map((agent) => ({
             id: agent.id,
             type: "editable",
-            position: calculateNodePosition(loadedAgents, agent),
+            position: calculateNodePosition(loadedAgents),
             data: {
               label: agent.id,
               agentType: agent.agent_type,
@@ -116,14 +113,11 @@ const TeamFlowBase: React.FC = () => {
   const handleApiKeySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tempApiKey.trim()) {
-      setIsLoading(true);
       try {
         await Api.setApiKey(tempApiKey.trim());
         setApiKey(tempApiKey.trim());
       } catch (error) {
         console.error("Failed to set API key:", error);
-      } finally {
-        setIsLoading(false);
       }
     }
   };
@@ -186,7 +180,7 @@ const TeamFlowBase: React.FC = () => {
         relationships: newAgent.relationships,
       };
       const createdAgent = await Api.createAgent(agentRequest);
-      const position = calculateNodePosition(agents, createdAgent);
+      const position = calculateNodePosition(agents);
 
       const newNode: CustomNode = {
         id: createdAgent.id,
@@ -222,7 +216,6 @@ const TeamFlowBase: React.FC = () => {
 
   const EditableNode = memo(
     ({ id, data }: { id: string; data: CustomNodeData }) => {
-      const isSupervisor = agents.length > 0 && agents[0].id === id;
       return (
         <div className={Styles.editableNode}>
           <div className={Styles.editableNodeHeader}>
@@ -288,7 +281,7 @@ const TeamFlowBase: React.FC = () => {
           },
         ]);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to execute task:", error);
       setTaskOutputs((prev) => [
         ...prev,
@@ -297,10 +290,14 @@ const TeamFlowBase: React.FC = () => {
           parsed_data: [
             {
               type: "error_message",
-              content: {
-                type: "text",
-                text: `Error processing task: ${error.message}`,
-              },
+              content: [
+                {
+                  type: "text",
+                  text: `Error processing task: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                  }`,
+                },
+              ],
             },
           ],
         },

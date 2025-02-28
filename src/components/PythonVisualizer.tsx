@@ -1,42 +1,37 @@
 import React, { useEffect, useRef, useState } from "react";
 import { loadPyodide } from "pyodide";
 
-const DEFAULT_VISUALIZATION_CODE = `import numpy as np
-import matplotlib.pyplot as plt
+// const DEFAULT_VISUALIZATION_CODE = `import numpy as np
+// import matplotlib.pyplot as plt
 
-# Create data for decadal temperature changes
-decades = ['1980s', '1990s', '2000s', '2010s', '2020s']
-temp_increase = [0.18, 0.25, 0.37, 0.52, 0.68]  # Representative values based on NASA data
+// # Create data for decadal temperature changes
+// decades = ['1980s', '1990s', '2000s', '2010s', '2020s']
+// temp_increase = [0.18, 0.25, 0.37, 0.52, 0.68]  # Representative values based on NASA data
 
-plt.figure(figsize=(10, 6))
-colors = plt.cm.YlOrRd(np.linspace(0.3, 0.9, len(decades)))
-bars = plt.bar(decades, temp_increase, color=colors)
+// plt.figure(figsize=(10, 6))
+// colors = plt.cm.YlOrRd(np.linspace(0.3, 0.9, len(decades)))
+// bars = plt.bar(decades, temp_increase, color=colors)
 
-# Add value labels on top of each bar
-for bar in bars:
-    height = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/2., height,
-             f'{height:.2f}°C',
-             ha='center', va='bottom')
+// # Add value labels on top of each bar
+// for bar in bars:
+//     height = bar.get_height()
+//     plt.text(bar.get_x() + bar.get_width()/2., height,
+//              f'{height:.2f}°C',
+//              ha='center', va='bottom')
 
-plt.grid(True, axis='y', alpha=0.3)
-plt.xlabel('Decade')
-plt.ylabel('Temperature Anomaly (°C)')
-plt.title('Global Temperature Anomaly by Decade\\n(Relative to 1951-1980 average)')
+// plt.grid(True, axis='y', alpha=0.3)
+// plt.xlabel('Decade')
+// plt.ylabel('Temperature Anomaly (°C)')
+// plt.title('Global Temperature Anomaly by Decade\\n(Relative to 1951-1980 average)')
 
-# Add a trend line
-x = np.arange(len(decades))
-z = np.polyfit(x, temp_increase, 1)
-p = np.poly1d(z)
-plt.plot(x, p(x), "r--", alpha=0.8, label='Warming Trend')
-plt.legend()
+// # Add a trend line
+// x = np.arange(len(decades))
+// z = np.polyfit(x, temp_increase, 1)
+// p = np.poly1d(z)
+// plt.plot(x, p(x), "r--", alpha=0.8, label='Warming Trend')
+// plt.legend()
 
-plt.tight_layout()`;
-
-interface VisualizationData {
-  type: string;
-  code: string;
-}
+// plt.tight_layout()`;
 
 interface Props {
   pythonCode?: string;

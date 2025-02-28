@@ -15,7 +15,12 @@ import { Agent } from "../data/Interfaces";
 import Api from "../data/Api";
 import PythonVisualizer from "./PythonVisualizer";
 // Import the shared TaskOutput interface
-import { ParsedData, TaskOutput } from "../data/TaskInterfaces";
+import {
+  ParsedData,
+  TaskOutput,
+  ContentItem,
+  ToolCall,
+} from "../data/TaskInterfaces";
 
 interface TaskPanelProps {
   onSubmitTask: (task: string) => void;
@@ -41,8 +46,7 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
       const lastOutput = outputs[outputs.length - 1];
       if (
         lastOutput.agent === "supervisor" &&
-        lastOutput.parsed_data &&
-        lastOutput.parsed_data[0].content[0].text === "Task complete"
+        lastOutput.parsed_data?.[0]?.content?.[0]?.text === "Task complete"
       ) {
         onTaskComplete();
       }
@@ -73,29 +77,35 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
 
     parsed_data.forEach((item: ParsedData, index: number) => {
       // Render text content
-      if (item.content) {
-        item.content.forEach((item, index) => {
-          if (item.type === "text") {
-            elements.push(
-              <React.Fragment key={`text-${index}`}>
-                {item.text.split("\n").map((line, lineIndex) => (
-                  <Typography
-                    key={`${index}-${lineIndex}`}
-                    variant="body2"
-                    sx={{ mb: 1 }}
-                  >
-                    {line}
-                  </Typography>
-                ))}
-              </React.Fragment>
-            );
+      if (item.content && Array.isArray(item.content)) {
+        item.content.forEach(
+          (contentItem: ContentItem, contentIndex: number) => {
+            if (contentItem.type === "text" && contentItem.text) {
+              elements.push(
+                <React.Fragment key={`text-${index}-${contentIndex}`}>
+                  {contentItem.text.split("\n").map((line, lineIndex) => (
+                    <Typography
+                      key={`${index}-${contentIndex}-${lineIndex}`}
+                      variant="body2"
+                      sx={{ mb: 1 }}
+                    >
+                      {line}
+                    </Typography>
+                  ))}
+                </React.Fragment>
+              );
+            }
           }
-        });
+        );
       }
 
       // Render code blocks
-      if (item.tool_calls?.length > 0) {
-        const toolCall = item.tool_calls[0];
+      if (
+        item.tool_calls &&
+        Array.isArray(item.tool_calls) &&
+        item.tool_calls.length > 0
+      ) {
+        const toolCall = item.tool_calls[0] as ToolCall;
         if (toolCall.tool_name === "plot_data_tool") {
           elements.push(
             <Box key={`code-${index}`} sx={{ mt: 2, mb: 2 }}>

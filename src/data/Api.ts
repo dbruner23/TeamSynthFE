@@ -7,6 +7,7 @@ import {
   cancelTask,
 } from "../services/ApiHandler";
 import { Agent, CreateAgentRequest, ExecuteTaskRequest } from "./Interfaces";
+import { TaskCancellationResponse } from "./TaskInterfaces";
 
 const Api = {
   setApiKey: async (apiKey: string): Promise<void> => {
@@ -55,9 +56,9 @@ const Api = {
     }
   },
 
-  cancelTask: async (): Promise<void> => {
+  cancelTask: async (): Promise<TaskCancellationResponse> => {
     try {
-      await cancelTask();
+      return await cancelTask();
     } catch (error) {
       console.error("Failed to cancel task:", error);
       throw error;

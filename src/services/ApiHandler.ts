@@ -7,9 +7,10 @@ import {
   AgentsResponse,
   ExecuteTaskResponse,
 } from "../data/Interfaces";
+import { TaskCancellationResponse } from "../data/TaskInterfaces";
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:8000",
 });
 
 let currentSessionId: string | null = null;
@@ -125,13 +126,18 @@ export const getAgents = async (): Promise<Agent[]> => {
   }
 };
 
-export const cancelTask = async (): Promise<void> => {
-  try {
-    await api.post("/cancel");
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(error.response?.data?.error || "Failed to cancel task");
-    }
-    throw error;
+export async function cancelTask(): Promise<TaskCancellationResponse> {
+  const response = await fetch("/api/cancel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to cancel task: ${response.status} ${errorText}`);
   }
-};
+
+  return (await response.json()) as TaskCancellationResponse;
+}

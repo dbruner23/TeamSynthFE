@@ -10,7 +10,6 @@ import {
   MenuItem,
   Box,
   IconButton,
-  SelectChangeEvent,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import { Agent, AgentType, AgentRelation } from "../data/Interfaces";
@@ -47,7 +46,7 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
 
   console.log(agentData);
 
-  const models: string[] = ["GPT-4o", "Claude", "LLAMA", "Gemini"];
+  // const models: string[] = ["GPT-4o", "Claude", "LLAMA", "Gemini"];
 
   useEffect(() => {
     if (editingNode) {
@@ -59,7 +58,8 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
     } else {
       // Reset form when not editing
       setAgentData({
-        agent_type: existingAgents.length === 0 ? AgentType.SUPERVISOR : AgentType.CODER,
+        agent_type:
+          existingAgents.length === 0 ? AgentType.SUPERVISOR : AgentType.CODER,
         system_prompt: "",
         relationships: [],
       });
@@ -86,28 +86,29 @@ const AgentSidebar: React.FC<AgentSidebarProps> = ({
     }
 
     setAgentData({
-      agent_type: existingAgents.length === 0 ? AgentType.SUPERVISOR : AgentType.CODER,
+      agent_type:
+        existingAgents.length === 0 ? AgentType.SUPERVISOR : AgentType.CODER,
       system_prompt: "",
       relationships: [],
     });
     onClose();
   };
 
-  const handleRelationshipChange = (
-    event: SelectChangeEvent<unknown>
-  ): void => {
-    const value = event.target.value as AgentRelation[];
-    setAgentData({
-      ...agentData,
-      relationships: value,
-    });
-  };
+  // const handleRelationshipChange = (
+  //   event: SelectChangeEvent<unknown>
+  // ): void => {
+  //   const value = event.target.value as AgentRelation[];
+  //   setAgentData({
+  //     ...agentData,
+  //     relationships: value,
+  //   });
+  // };
 
-  const hasSupervisor = (): boolean => {
-    return existingAgents.some(
-      (agent) => agent.agent_type === AgentType.SUPERVISOR
-    );
-  };
+  // const hasSupervisor = (): boolean => {
+  //   return existingAgents.some(
+  //     (agent) => agent.agent_type === AgentType.SUPERVISOR
+  //   );
+  // };
 
   const isSupervisorNode = (): boolean => {
     return editingNode?.data.agent_type === AgentType.SUPERVISOR;
