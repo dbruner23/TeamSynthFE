@@ -4,6 +4,7 @@ export interface ParsedData {
   text?: string;
   code?: string;
   language?: string;
+  tool_calls?: any[];
 }
 
 export interface TaskOutput {

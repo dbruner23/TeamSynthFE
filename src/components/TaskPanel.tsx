@@ -15,7 +15,7 @@ import { Agent } from "../data/Interfaces";
 import Api from "../data/Api";
 import PythonVisualizer from "./PythonVisualizer";
 // Import the shared TaskOutput interface
-import { TaskOutput } from "../data/TaskInterfaces";
+import { ParsedData, TaskOutput } from "../data/TaskInterfaces";
 
 interface TaskPanelProps {
   onSubmitTask: (task: string) => void;
@@ -68,10 +68,10 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
     }
   };
 
-  const renderContent = (parsed_data: TaskOutput[]) => {
+  const renderContent = (parsed_data: ParsedData[]) => {
     const elements: JSX.Element[] = [];
 
-    parsed_data.forEach((item: TaskOutput, index: number) => {
+    parsed_data.forEach((item: ParsedData, index: number) => {
       // Render text content
       if (item.content) {
         item.content.forEach((item, index) => {
