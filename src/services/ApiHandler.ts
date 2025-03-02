@@ -10,7 +10,7 @@ import {
 import { TaskCancellationResponse } from "../data/TaskInterfaces";
 
 const api = axios.create({
-  baseURL: "https://teamsynthbe.onrender.com",
+  baseURL: "https://teamsynthbe.onrender.com/api",
 });
 
 let currentSessionId: string | null = null;
