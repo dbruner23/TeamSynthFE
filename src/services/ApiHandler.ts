@@ -12,9 +12,10 @@ import { TaskCancellationResponse } from "../data/TaskInterfaces";
 const api = axios.create({
   baseURL: "https://teamsynthbe.onrender.com/api",
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  }
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  withCredentials: true,
 });
 
 let currentSessionId: string | null = null;
