@@ -29,8 +29,21 @@ api.interceptors.request.use((config) => {
 });
 
 export const setApiKey = async (apiKey: string) => {
-  const response = await api.post("/set_api_key", { api_key: apiKey });
-  return response.data;
+  try {
+    const response = await api.post("/set_api_key", { api_key: apiKey });
+    const data = response.data;
+    if (response.headers['x-session-id']) {
+      currentSessionId = response.headers['x-session-id'];
+    } else if (response.data.session_id) {
+      currentSessionId = response.data.session_id;
+    }
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      throw new Error(error.response?.data?.error || "Failed to set API key");
+    }
+    throw error;
+  }
 };
 
 export const createAgent = async (
@@ -77,10 +90,18 @@ export const executeTaskStream = async function* (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
         ...(currentSessionId && { "X-Session-ID": currentSessionId }),
       },
+      credentials: 'include',
       body: JSON.stringify(taskData),
     });
+
+    // Check for session ID in response headers
+    const responseSessionId = response.headers.get('x-session-id');
+    if (responseSessionId) {
+      currentSessionId = responseSessionId;
+    }
 
     if (!response.body) {
       throw new Error("No response body received");
@@ -132,12 +153,21 @@ export const getAgents = async (): Promise<Agent[]> => {
 };
 
 export async function cancelTask(): Promise<TaskCancellationResponse> {
-  const response = await fetch("/api/cancel", {
+  const response = await fetch(`${api.defaults.baseURL}/cancel`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(currentSessionId && { "X-Session-ID": currentSessionId }),
     },
+    credentials: 'include',
   });
+
+  // Check for session ID in response headers
+  const responseSessionId = response.headers.get('x-session-id');
+  if (responseSessionId) {
+    currentSessionId = responseSessionId;
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
