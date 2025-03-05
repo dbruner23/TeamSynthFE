@@ -14,7 +14,7 @@ import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import BugReportIcon from "@mui/icons-material/BugReport";
-import { Button, TextField, Box, Typography, Link } from "@mui/material";
+import { Button, TextField, Box, Typography, Link, CircularProgress, Backdrop } from "@mui/material";
 import AgentSidebar from "./AgentSidebar";
 import TaskPanel from "./TaskPanel";
 import Styles from "./TeamFlowBase.module.css";
@@ -49,6 +49,7 @@ const TeamFlowBase: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [tempApiKey, setTempApiKey] = useState<string>("");
   const [isTaskRunning, setIsTaskRunning] = useState<boolean>(false);
+  const [isServerStarting, setIsServerStarting] = useState<boolean>(false);
 
   const CANVAS_CENTER_X = 500;
   const CANVAS_CENTER_Y = 300;
@@ -114,10 +115,13 @@ const TeamFlowBase: React.FC = () => {
     e.preventDefault();
     if (tempApiKey.trim()) {
       try {
+        setIsServerStarting(true);
         await Api.setApiKey(tempApiKey.trim());
         setApiKey(tempApiKey.trim());
       } catch (error) {
         console.error("Failed to set API key:", error);
+      } finally {
+        setIsServerStarting(false);
       }
     }
   };
@@ -321,6 +325,20 @@ const TeamFlowBase: React.FC = () => {
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
+      {/* Loading Mask */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column', 
+          gap: 2 
+        }}
+        open={isServerStarting}
+      >
+        <CircularProgress color="inherit" />
+        <Typography variant="h6">Starting server...</Typography>
+      </Backdrop>
+      
       {!apiKey ? (
         <Box
           sx={{
@@ -368,7 +386,7 @@ const TeamFlowBase: React.FC = () => {
         </Box>
       ) : (
         <>
-          <Button
+          {/* <Button
             variant="contained"
             startIcon={<BugReportIcon />}
             onClick={handleDebugAgents}
@@ -381,7 +399,7 @@ const TeamFlowBase: React.FC = () => {
             color="secondary"
           >
             Debug Agents
-          </Button>
+          </Button> */}
 
           <Button
             variant="contained"

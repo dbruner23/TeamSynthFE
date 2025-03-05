@@ -7,6 +7,7 @@ import {
   Typography,
   IconButton,
   Collapse,
+  CircularProgress,
 } from "@mui/material";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -143,6 +144,26 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
         </IconButton>
       </Box>
 
+      {!isExpanded && existingAgents.length > 0 && (
+        <Box 
+          sx={{ 
+            position: 'absolute', 
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1,
+            pb: 1
+          }}
+        >
+          <Typography variant="subtitle1" color="#666" fontWeight="medium">
+            Expand to assign tasks to your team
+          </Typography>
+        </Box>
+      )}
+
       <Collapse in={isExpanded}>
         <Box sx={{ p: 2 }}>
           <form onSubmit={handleSubmit}>
@@ -194,7 +215,12 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
               borderRadius: 1,
             }}
           >
-            <Typography variant="h6">Task Steps</Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="h6">Task Steps</Typography>
+              {isTaskRunning && (
+                <CircularProgress size={24} thickness={4} color="primary" />
+              )}
+            </Box>
             {outputs.map(
               (output, index) =>
                 output.agent && (
