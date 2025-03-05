@@ -10,7 +10,7 @@ import {
 import { TaskCancellationResponse } from "../data/TaskInterfaces";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api", //"https://teamsynthbe.onrender.com/api",
+  baseURL: "https://teamsynthbe.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
