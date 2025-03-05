@@ -13,7 +13,7 @@ import {
 import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
-import BugReportIcon from "@mui/icons-material/BugReport";
+// import BugReportIcon from "@mui/icons-material/BugReport";
 import { Button, TextField, Box, Typography, Link, CircularProgress, Backdrop } from "@mui/material";
 import AgentSidebar from "./AgentSidebar";
 import TaskPanel from "./TaskPanel";
@@ -314,14 +314,14 @@ const TeamFlowBase: React.FC = () => {
     setIsTaskRunning(false);
   }, []);
 
-  const handleDebugAgents = async () => {
-    try {
-      const response = await Api.getAgents();
-      console.log("Current Agents:", response);
-    } catch (error) {
-      console.error("Failed to fetch agents for debug:", error);
-    }
-  };
+  // const handleDebugAgents = async () => {
+  //   try {
+  //     const response = await Api.getAgents();
+  //     console.log("Current Agents:", response);
+  //   } catch (error) {
+  //     console.error("Failed to fetch agents for debug:", error);
+  //   }
+  // };
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
