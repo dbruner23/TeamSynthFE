@@ -207,8 +207,8 @@ const TaskPanel: React.FC<TaskPanelProps> = ({
 
           <Box
             sx={{
-              maxHeight: "50vh",
-              height: "50vh",
+              maxHeight: "60vh",
+              height: "60vh",
               overflowY: "auto",
               bgcolor: "#f5f5f5",
               p: 2,
